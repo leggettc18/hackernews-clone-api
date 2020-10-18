@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/dgrijalva/jwt-go"
 	"github.com/rs/cors"
@@ -24,6 +25,14 @@ var (
 			Description: "Fullstack tutorial for Graphql",
 		},
 	}
+)
+
+var (
+	addr              = ":8081"
+	readHeaderTimeout = 1 * time.Second
+	writeTimeout      = 10 * time.Second
+	idleTimeout       = 90 * time.Second
+	maxHeaderBytes    = http.DefaultMaxHeaderBytes
 )
 
 var users []User = []User{}
@@ -209,15 +218,38 @@ func parseSchema(path string, resolver interface{}) *graphql.Schema {
 func main() {
 	mux := http.NewServeMux()
 
-	// cors.Default() setup the middleware with default options being
-	// all origins accepted with simple methods (GET, POST). See
-	// documentation below for more options.
-	handler := cors.Default().Handler(mux)
-
 	mux.Handle("/graphql", &relay.Handler{
 		Schema: parseSchema("./schema.graphql", &RootResolver{}),
 	})
 
-	fmt.Println("serving on 8081")
-	log.Fatal(http.ListenAndServe(":8081", handler))
+	// necessary CORS options. Should not be used in production
+	// AllowedOrigins should be more specific than * and the
+	// AllowOriginFunc should not be present. This code is not
+	// written for production or for a CORS tutorial so this is fine
+	// for its purpose.
+	handler := cors.New(cors.Options{
+		AllowedOrigins:   []string{"*"},
+		AllowCredentials: true,
+		AllowedMethods:   []string{"GET", "POST", "OPTIONS"},
+		AllowedHeaders:   []string{"Content-Type", "Authorization"},
+		AllowOriginFunc:  func(origin string) bool { return true },
+		// Enable Debugging for testing, consider disabling in production
+		Debug: true,
+	}).Handler(mux)
+
+	s := &http.Server{
+		Addr:              addr,
+		Handler:           handler,
+		ReadHeaderTimeout: readHeaderTimeout,
+		WriteTimeout:      writeTimeout,
+		IdleTimeout:       idleTimeout,
+		MaxHeaderBytes:    maxHeaderBytes,
+	}
+
+	// Begin listeing for requests.
+	log.Printf("Listening for requests on %s", s.Addr)
+
+	if err := s.ListenAndServe(); err != nil {
+		log.Println("server.ListenAndServe:", err)
+	}
 }
