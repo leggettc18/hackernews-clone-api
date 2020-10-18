@@ -7,6 +7,8 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/rs/cors"
+
 	graphql "github.com/graph-gophers/graphql-go"
 	"github.com/graph-gophers/graphql-go/relay"
 )
@@ -15,7 +17,7 @@ var (
 	opts  = []graphql.SchemaOpt{graphql.UseFieldResolvers()}
 	links = []Link{
 		{
-			ID:          "id-0",
+			ID:          "0",
 			URL:         "www.howtographql.com",
 			Description: "Fullstack tutorial for Graphql",
 		},
@@ -58,7 +60,7 @@ func (r *RootResolver) Post(args struct {
 	URL         string
 }) (Link, error) {
 	newLink := Link{
-		ID:          graphql.ID(fmt.Sprint(len(links)) + "-link"),
+		ID:          graphql.ID(fmt.Sprint(len(links))),
 		Description: args.Description,
 		URL:         args.URL,
 	}
@@ -87,10 +89,17 @@ func parseSchema(path string, resolver interface{}) *graphql.Schema {
 }
 
 func main() {
-	http.Handle("/graphql", &relay.Handler{
+	mux := http.NewServeMux()
+
+	// cors.Default() setup the middleware with default options being
+	// all origins accepted with simple methods (GET, POST). See
+	// documentation below for more options.
+	handler := cors.Default().Handler(mux)
+
+	mux.Handle("/graphql", &relay.Handler{
 		Schema: parseSchema("./schema.graphql", &RootResolver{}),
 	})
 
-	fmt.Println("serving on 8080")
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	fmt.Println("serving on 8081")
+	log.Fatal(http.ListenAndServe(":8081", handler))
 }
