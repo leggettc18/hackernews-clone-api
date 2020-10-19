@@ -1,11 +1,13 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
@@ -17,12 +19,25 @@ import (
 )
 
 var (
-	opts  = []graphql.SchemaOpt{graphql.UseFieldResolvers()}
+	opts            = []graphql.SchemaOpt{graphql.UseFieldResolvers()}
+	passwordHash, _ = bcrypt.GenerateFromPassword(
+		[]byte("password"),
+		bcrypt.DefaultCost,
+	)
+	users = []User{
+		{
+			ID:       "0",
+			Name:     "Christopher Leggett",
+			Email:    "chris@leggett.dev",
+			Password: string(passwordHash),
+		},
+	}
 	links = []Link{
 		{
 			ID:          "0",
 			URL:         "www.howtographql.com",
 			Description: "Fullstack tutorial for Graphql",
+			PostedBy:    &users[0],
 		},
 	}
 )
@@ -34,8 +49,6 @@ var (
 	idleTimeout       = 90 * time.Second
 	maxHeaderBytes    = http.DefaultMaxHeaderBytes
 )
-
-var users []User = []User{}
 
 type User struct {
 	ID       graphql.ID
@@ -56,12 +69,7 @@ type Link struct {
 	ID          graphql.ID
 	Description string
 	URL         string
-	PostedBy    Poster
-}
-
-type Poster struct {
-	ID   graphql.ID
-	Name string
+	PostedBy    *User
 }
 
 func (r *RootResolver) Info() (string, error) {
@@ -87,36 +95,50 @@ func (r *RootResolver) Link(args struct {
 	}, errors.New("ID not found")
 }
 
-func (r *RootResolver) Post(args struct {
-	Description string
-	URL         string
-	PostedBy    string
-}) (Link, error) {
-	userName, errID := getNameFromID(args.PostedBy)
-	if errID != nil {
-		return Link{}, errID
+func (r *RootResolver) Post(
+	ctx context.Context,
+	args struct {
+		Description string
+		URL         string
+	}) (Link, error) {
+	token, ok := ctx.Value("token").(string)
+	if !ok {
+		return Link{}, errors.New("Post: no key 'token' in context")
+	}
+	author, errAuthor := GetUserFromToken(token)
+	if errAuthor != nil {
+		return Link{}, errAuthor
 	}
 	newLink := Link{
 		ID:          graphql.ID(fmt.Sprint(len(links))),
 		Description: args.Description,
 		URL:         args.URL,
-		PostedBy: Poster{
-			ID:   graphql.ID(fmt.Sprint(args.PostedBy)),
-			Name: userName,
-		},
+		PostedBy:    author,
 	}
 
 	links = append(links, newLink)
 	return newLink, nil
 }
 
-func getNameFromID(id string) (string, error) {
-	for _, user := range users {
-		if user.ID == graphql.ID(id) {
-			return user.Name, nil
+func GetUserFromToken(tokenString string) (*User, error) {
+	// decode token with the secret it was encoded with
+	tokenObj, err := jwt.ParseWithClaims(tokenString, jwt.MapClaims{}, func(token *jwt.Token) (interface{}, error) {
+		return []byte("verysecret"), nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	// get user ID from the map we encoded in the token
+	userID, ok := tokenObj.Claims.(jwt.MapClaims)["ID"].(string)
+	if !ok {
+		return nil, errors.New("GetUserIDFromToken error: type conversion in claims")
+	}
+	for _, u := range users {
+		if string(u.ID) == userID {
+			return &u, nil
 		}
 	}
-	return "", errors.New("User ID not found")
+	return nil, errors.New("No user with ID " + string(userID))
 }
 
 func (r *RootResolver) Signup(args struct {
@@ -218,8 +240,14 @@ func parseSchema(path string, resolver interface{}) *graphql.Schema {
 func main() {
 	mux := http.NewServeMux()
 
-	mux.Handle("/graphql", &relay.Handler{
+	gqlHandler := &relay.Handler{
 		Schema: parseSchema("./schema.graphql", &RootResolver{}),
+	}
+
+	mux.HandleFunc("/graphql", func(w http.ResponseWriter, r *http.Request) {
+		token := strings.ReplaceAll(r.Header.Get("Authorization"), "Bearer ", "")
+		ctx := context.WithValue(context.Background(), "token", token)
+		gqlHandler.ServeHTTP(w, r.WithContext(ctx))
 	})
 
 	// necessary CORS options. Should not be used in production
