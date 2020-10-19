@@ -24,7 +24,9 @@ var (
 		[]byte("password"),
 		bcrypt.DefaultCost,
 	)
-	users = []User{
+	longForm      = "Jan 2, 2006 at 3:04pm (MST)"
+	sampleTime, _ = time.Parse(longForm, "Feb 3, 2013 at 7:54pm (PST)")
+	users         = []User{
 		{
 			ID:       "0",
 			Name:     "Christopher Leggett",
@@ -35,9 +37,17 @@ var (
 	links = []Link{
 		{
 			ID:          "0",
+			CreatedAt:   graphql.Time{Time: sampleTime},
 			URL:         "www.howtographql.com",
 			Description: "Fullstack tutorial for Graphql",
-			PostedBy:    &users[0],
+			PostedBy:    users[0],
+		},
+	}
+	votes = []Vote{
+		{
+			ID:   "0",
+			User: users[0],
+			Link: links[0],
 		},
 	}
 )
@@ -56,6 +66,7 @@ type User struct {
 	Email    string
 	Password string
 	Links    []Link
+	Votes    []Vote
 }
 
 type AuthPayload struct {
@@ -67,9 +78,17 @@ type RootResolver struct{}
 
 type Link struct {
 	ID          graphql.ID
+	CreatedAt   graphql.Time
 	Description string
 	URL         string
-	PostedBy    *User
+	PostedBy    User
+	Votes       []Vote
+}
+
+type Vote struct {
+	ID   graphql.ID
+	User User
+	Link Link
 }
 
 func (r *RootResolver) Info() (string, error) {
@@ -77,7 +96,16 @@ func (r *RootResolver) Info() (string, error) {
 }
 
 func (r *RootResolver) Feed() ([]Link, error) {
-	return links, nil
+	var processedLinks = []Link{}
+	for index, link := range links {
+		processedLinks = append(processedLinks, link)
+		for _, vote := range votes {
+			if vote.Link.ID == processedLinks[index].ID {
+				processedLinks[index].Votes = append(processedLinks[index].Votes, vote)
+			}
+		}
+	}
+	return processedLinks, nil
 }
 
 func (r *RootResolver) Link(args struct {
@@ -85,6 +113,11 @@ func (r *RootResolver) Link(args struct {
 }) (Link, error) {
 	for _, link := range links {
 		if link.ID == args.ID {
+			for _, vote := range votes {
+				if vote.Link.ID == link.ID {
+					link.Votes = append(link.Votes, vote)
+				}
+			}
 			return link, nil
 		}
 	}
@@ -113,7 +146,7 @@ func (r *RootResolver) Post(
 		ID:          graphql.ID(fmt.Sprint(len(links))),
 		Description: args.Description,
 		URL:         args.URL,
-		PostedBy:    author,
+		PostedBy:    *author,
 	}
 
 	links = append(links, newLink)

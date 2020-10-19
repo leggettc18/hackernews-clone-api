@@ -9,11 +9,15 @@ type Query {
     link(id: ID!): Link!
 }
 
+scalar Time
+
 type Link {
     id: ID!
+    createdAt: Time!
     description: String!
     url: String!
     postedBy: User!
+    votes: [Vote!]!
 }
 
 type Mutation {
@@ -32,4 +36,11 @@ type User {
     email: String!
     name: String!
     links: [Link!]!
+    votes: [Vote!]!
+}
+
+type Vote {
+    id: ID!
+    user: User!
+    link: Link!
 }
