@@ -40,14 +40,14 @@ var (
 			CreatedAt:   graphql.Time{Time: sampleTime},
 			URL:         "www.howtographql.com",
 			Description: "Fullstack tutorial for Graphql",
-			PostedBy:    users[0],
+			PostedBy:    &users[0],
 		},
 	}
 	votes = []Vote{
 		{
 			ID:   "0",
-			User: users[0],
-			Link: links[0],
+			User: &users[0],
+			Link: &links[0],
 		},
 	}
 )
@@ -81,14 +81,14 @@ type Link struct {
 	CreatedAt   graphql.Time
 	Description string
 	URL         string
-	PostedBy    User
+	PostedBy    *User
 	Votes       []Vote
 }
 
 type Vote struct {
 	ID   graphql.ID
-	User User
-	Link Link
+	User *User
+	Link *Link
 }
 
 func (r *RootResolver) Info() (string, error) {
@@ -146,11 +146,39 @@ func (r *RootResolver) Post(
 		ID:          graphql.ID(fmt.Sprint(len(links))),
 		Description: args.Description,
 		URL:         args.URL,
-		PostedBy:    *author,
+		PostedBy:    author,
 	}
 
 	links = append(links, newLink)
 	return newLink, nil
+}
+
+func (r *RootResolver) UpVote(
+	ctx context.Context,
+	args struct {
+		LinkID graphql.ID
+	}) (Vote, error) {
+	token, ok := ctx.Value("token").(string)
+	if !ok {
+		return Vote{}, errors.New("Post: no key 'token' in context")
+	}
+	voter, errVoter := GetUserFromToken(token)
+	if errVoter != nil {
+		return Vote{}, errVoter
+	}
+	var votedLink Link
+	for _, link := range links {
+		if link.ID == args.LinkID {
+			votedLink = link
+		}
+	}
+	newVote := Vote{
+		ID:   graphql.ID(fmt.Sprint((votes))),
+		User: voter,
+		Link: &votedLink,
+	}
+	votes = append(votes, newVote)
+	return newVote, nil
 }
 
 func GetUserFromToken(tokenString string) (*User, error) {
