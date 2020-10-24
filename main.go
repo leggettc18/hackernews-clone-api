@@ -144,9 +144,11 @@ func (r *RootResolver) Post(
 	}
 	newLink := Link{
 		ID:          graphql.ID(fmt.Sprint(len(links))),
+		CreatedAt:   graphql.Time{time.Now()},
 		Description: args.Description,
 		URL:         args.URL,
 		PostedBy:    author,
+		Votes:       []Vote{},
 	}
 
 	links = append(links, newLink)
@@ -166,8 +168,17 @@ func (r *RootResolver) UpVote(
 	if errVoter != nil {
 		return Vote{}, errVoter
 	}
+	var processedLinks = []Link{}
+	for index, link := range links {
+		processedLinks = append(processedLinks, link)
+		for _, vote := range votes {
+			if vote.Link.ID == processedLinks[index].ID {
+				processedLinks[index].Votes = append(processedLinks[index].Votes, vote)
+			}
+		}
+	}
 	var votedLink Link
-	for _, link := range links {
+	for _, link := range processedLinks {
 		if link.ID == args.LinkID {
 			votedLink = link
 		}
@@ -177,6 +188,7 @@ func (r *RootResolver) UpVote(
 		User: voter,
 		Link: &votedLink,
 	}
+	votedLink.Votes = append(votedLink.Votes, newVote)
 	votes = append(votes, newVote)
 	return newVote, nil
 }
