@@ -335,7 +335,7 @@ func main() {
 		AllowedHeaders:   []string{"Content-Type", "Authorization"},
 		AllowOriginFunc:  func(origin string) bool { return true },
 		// Enable Debugging for testing, consider disabling in production
-		Debug: true,
+		Debug: false,
 	}).Handler(mux)
 
 	s := &http.Server{
