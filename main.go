@@ -95,10 +95,58 @@ func (r *RootResolver) Info() (string, error) {
 	return "this is a thing", nil
 }
 
-func (r *RootResolver) Feed() ([]Link, error) {
+type FeedFilter struct {
+	Or  *[]string
+	And *[]string
+}
+
+func (r *RootResolver) Feed(args struct {
+	Filter *FeedFilter
+}) ([]Link, error) {
 	var processedLinks = []Link{}
-	for index, link := range links {
-		processedLinks = append(processedLinks, link)
+
+	if args.Filter.Or != nil && args.Filter.And == nil {
+		for _, link := range links {
+			for _, option := range *args.Filter.Or {
+				if strings.Contains(link.URL, option) {
+					processedLinks = append(processedLinks, link)
+				} else if strings.Contains(link.Description, option) {
+					processedLinks = append(processedLinks, link)
+				}
+			}
+		}
+	} else if args.Filter.And != nil {
+		containsAll := true
+		for _, link := range processedLinks {
+			for _, option := range *args.Filter.And {
+				if containsAll == false {
+					break
+				}
+				if strings.Contains(link.URL, option) {
+					containsAll = true
+				} else {
+					containsAll = false
+				}
+			}
+			if containsAll == true {
+				processedLinks = append(processedLinks, link)
+			} else {
+				for _, option := range *args.Filter.And {
+					if containsAll == false {
+						break
+					}
+					if strings.Contains(link.Description, option) {
+						containsAll = true
+					} else {
+						containsAll = false
+					}
+				}
+			}
+		}
+	} else {
+		processedLinks = links
+	}
+	for index := range processedLinks {
 		for _, vote := range votes {
 			if vote.Link.ID == processedLinks[index].ID {
 				processedLinks[index].Votes = append(processedLinks[index].Votes, vote)

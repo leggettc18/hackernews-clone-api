@@ -5,8 +5,13 @@ schema {
 
 type Query {
     info: String!
-    feed: [Link!]!
+    feed(filter: FeedFilter): [Link!]!
     link(id: ID!): Link!
+}
+
+input FeedFilter {
+    OR: [String!]
+    AND: [String!]
 }
 
 scalar Time
