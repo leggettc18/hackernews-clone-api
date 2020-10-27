@@ -21,7 +21,7 @@ import (
 )
 
 var (
-	opts = []graphql.SchemaOpt{graphql.UseFieldResolvers()}
+//opts = []graphql.SchemaOpt{graphql.UseFieldResolvers()}
 )
 
 var (
@@ -241,7 +241,7 @@ func parseSchema(path string, resolver interface{}) *graphql.Schema {
 	parsedSchema, err := graphql.ParseSchema(
 		schemaString,
 		resolver,
-		opts...,
+		//opts...,
 	)
 	if err != nil {
 		panic(err)

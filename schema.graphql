@@ -1,17 +1,11 @@
 schema { 
     query: Query
-    mutation: Mutation
+#    mutation: Mutation
 }
 
 type Query {
-    info: String!
-    feed(filter: FeedFilter): [Link!]!
+    links(OR: [String!], AND: [String!]): [Link!]
     link(id: ID!): Link!
-}
-
-input FeedFilter {
-    OR: [String!]
-    AND: [String!]
 }
 
 scalar Time
@@ -22,15 +16,15 @@ type Link {
     description: String!
     url: String!
     postedBy: User!
-    votes: [Vote!]!
+    votes: [Vote!]
 }
 
-type Mutation {
-    post(url: String!, description: String!): Link!
-    signup(email: String!, password: String!, name: String!): AuthPayload
-    login(email: String!, password: String!): AuthPayload
-    upVote(linkId: ID!): Vote!
-}
+#type Mutation {
+#    post(url: String!, description: String!): Link!
+#    signup(email: String!, password: String!, name: String!): AuthPayload
+#    login(email: String!, password: String!): AuthPayload
+#    upVote(linkId: ID!): Vote!
+#}
 
 type AuthPayload {
     token: String
@@ -41,8 +35,8 @@ type User {
     id: ID!
     email: String!
     name: String!
-    links: [Link!]!
-    votes: [Vote!]!
+    links: [Link!]
+    votes: [Vote!]
 }
 
 type Vote {

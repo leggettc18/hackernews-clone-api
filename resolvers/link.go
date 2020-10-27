@@ -130,3 +130,21 @@ func (r *LinkResolver) Url() string {
 func (r *LinkResolver) PostedBy(ctx context.Context) (*UserResolver, error) {
 	return NewUser(ctx, NewUserArgs{ID: r.Link.PostedBy.ID})
 }
+
+func (r *LinkResolver) Votes(ctx context.Context) (*[]*VoteResolver, error) {
+	var (
+		resolvers = []*VoteResolver{}
+		errs      errors.Errors
+	)
+	for index, vote := range votes {
+		if vote.Link.ID == r.Link.ID {
+			resolver, err := NewVote(ctx, NewVoteArgs{ID: vote.ID})
+			if err != nil {
+				errs = append(errs, errors.WithIndex(err, index))
+			} else {
+				resolvers = append(resolvers, resolver)
+			}
+		}
+	}
+	return &resolvers, errs.Err()
+}
