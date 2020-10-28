@@ -4,14 +4,8 @@ schema {
 }
 
 type Query {
-    info: String!
-    feed(filter: FeedFilter): [Link!]!
+    links(OR: [String!], AND: [String!]): [Link!]
     link(id: ID!): Link!
-}
-
-input FeedFilter {
-    OR: [String!]
-    AND: [String!]
 }
 
 scalar Time
@@ -22,7 +16,7 @@ type Link {
     description: String!
     url: String!
     postedBy: User!
-    votes: [Vote!]!
+    votes: [Vote!]
 }
 
 type Mutation {
@@ -41,8 +35,8 @@ type User {
     id: ID!
     email: String!
     name: String!
-    links: [Link!]!
-    votes: [Vote!]!
+    links: [Link!]
+    votes: [Vote!]
 }
 
 type Vote {

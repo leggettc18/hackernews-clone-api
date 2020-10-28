@@ -2,54 +2,26 @@ package main
 
 import (
 	"context"
-	"errors"
-	"fmt"
+	"github.com/leggettc18/hackernews-clone-api/resolvers"
+
+	//"errors"
+	//"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"strings"
 	"time"
 
-	"github.com/dgrijalva/jwt-go"
+	//"github.com/dgrijalva/jwt-go"
 	"github.com/rs/cors"
-	"golang.org/x/crypto/bcrypt"
+	//"golang.org/x/crypto/bcrypt"
 
-	graphql "github.com/graph-gophers/graphql-go"
+	"github.com/graph-gophers/graphql-go"
 	"github.com/graph-gophers/graphql-go/relay"
 )
 
 var (
-	opts            = []graphql.SchemaOpt{graphql.UseFieldResolvers()}
-	passwordHash, _ = bcrypt.GenerateFromPassword(
-		[]byte("password"),
-		bcrypt.DefaultCost,
-	)
-	longForm      = "Jan 2, 2006 at 3:04pm (MST)"
-	sampleTime, _ = time.Parse(longForm, "Feb 3, 2013 at 7:54pm (PST)")
-	users         = []User{
-		{
-			ID:       "0",
-			Name:     "Christopher Leggett",
-			Email:    "chris@leggett.dev",
-			Password: string(passwordHash),
-		},
-	}
-	links = []Link{
-		{
-			ID:          "0",
-			CreatedAt:   graphql.Time{Time: sampleTime},
-			URL:         "www.howtographql.com",
-			Description: "Fullstack tutorial for Graphql",
-			PostedBy:    &users[0],
-		},
-	}
-	votes = []Vote{
-		{
-			ID:   "0",
-			User: &users[0],
-			Link: &links[0],
-		},
-	}
+//opts = []graphql.SchemaOpt{graphql.UseFieldResolvers()}
 )
 
 var (
@@ -60,7 +32,7 @@ var (
 	maxHeaderBytes    = http.DefaultMaxHeaderBytes
 )
 
-type User struct {
+/*type User struct {
 	ID       graphql.ID
 	Name     string
 	Email    string
@@ -80,7 +52,7 @@ type Link struct {
 	ID          graphql.ID
 	CreatedAt   graphql.Time
 	Description string
-	URL         string
+	Url         string
 	PostedBy    *User
 	Votes       []Vote
 }
@@ -95,92 +67,11 @@ func (r *RootResolver) Info() (string, error) {
 	return "this is a thing", nil
 }
 
-type FeedFilter struct {
-	Or  *[]string
-	And *[]string
-}
-
-func (r *RootResolver) Feed(args struct {
-	Filter *FeedFilter
-}) ([]Link, error) {
-	var processedLinks = []Link{}
-
-	if args.Filter.Or != nil && args.Filter.And == nil {
-		for _, link := range links {
-			for _, option := range *args.Filter.Or {
-				if strings.Contains(link.URL, option) {
-					processedLinks = append(processedLinks, link)
-				} else if strings.Contains(link.Description, option) {
-					processedLinks = append(processedLinks, link)
-				}
-			}
-		}
-	} else if args.Filter.And != nil {
-		containsAll := true
-		for _, link := range processedLinks {
-			for _, option := range *args.Filter.And {
-				if containsAll == false {
-					break
-				}
-				if strings.Contains(link.URL, option) {
-					containsAll = true
-				} else {
-					containsAll = false
-				}
-			}
-			if containsAll == true {
-				processedLinks = append(processedLinks, link)
-			} else {
-				for _, option := range *args.Filter.And {
-					if containsAll == false {
-						break
-					}
-					if strings.Contains(link.Description, option) {
-						containsAll = true
-					} else {
-						containsAll = false
-					}
-				}
-			}
-		}
-	} else {
-		processedLinks = links
-	}
-	for index := range processedLinks {
-		for _, vote := range votes {
-			if vote.Link.ID == processedLinks[index].ID {
-				processedLinks[index].Votes = append(processedLinks[index].Votes, vote)
-			}
-		}
-	}
-	return processedLinks, nil
-}
-
-func (r *RootResolver) Link(args struct {
-	ID graphql.ID
-}) (Link, error) {
-	for _, link := range links {
-		if link.ID == args.ID {
-			for _, vote := range votes {
-				if vote.Link.ID == link.ID {
-					link.Votes = append(link.Votes, vote)
-				}
-			}
-			return link, nil
-		}
-	}
-	return Link{
-		ID:          "",
-		Description: "",
-		URL:         "",
-	}, errors.New("ID not found")
-}
-
 func (r *RootResolver) Post(
 	ctx context.Context,
 	args struct {
 		Description string
-		URL         string
+		Url         string
 	}) (Link, error) {
 	token, ok := ctx.Value("token").(string)
 	if !ok {
@@ -194,7 +85,7 @@ func (r *RootResolver) Post(
 		ID:          graphql.ID(fmt.Sprint(len(links))),
 		CreatedAt:   graphql.Time{time.Now()},
 		Description: args.Description,
-		URL:         args.URL,
+		Url:         args.Url,
 		PostedBy:    author,
 		Votes:       []Vote{},
 	}
@@ -337,7 +228,7 @@ func getUser(email, password string) (User, error) {
 		}
 	}
 	return User{}, errors.New("No user with email " + email)
-}
+}*/
 
 // Reads and parses the schema from file.
 // Associates root resolver. Panics if can't read.
@@ -350,7 +241,7 @@ func parseSchema(path string, resolver interface{}) *graphql.Schema {
 	parsedSchema, err := graphql.ParseSchema(
 		schemaString,
 		resolver,
-		opts...,
+		//opts...,
 	)
 	if err != nil {
 		panic(err)
@@ -361,8 +252,14 @@ func parseSchema(path string, resolver interface{}) *graphql.Schema {
 func main() {
 	mux := http.NewServeMux()
 
+	rootResolver, err := resolvers.NewRoot()
+
+	if err != nil {
+		panic(err)
+	}
+
 	gqlHandler := &relay.Handler{
-		Schema: parseSchema("./schema.graphql", &RootResolver{}),
+		Schema: parseSchema("./schema.graphql", rootResolver),
 	}
 
 	mux.HandleFunc("/graphql", func(w http.ResponseWriter, r *http.Request) {
