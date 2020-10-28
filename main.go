@@ -16,7 +16,7 @@ import (
 	"github.com/rs/cors"
 	//"golang.org/x/crypto/bcrypt"
 
-	graphql "github.com/graph-gophers/graphql-go"
+	"github.com/graph-gophers/graphql-go"
 	"github.com/graph-gophers/graphql-go/relay"
 )
 
@@ -52,7 +52,7 @@ type Link struct {
 	ID          graphql.ID
 	CreatedAt   graphql.Time
 	Description string
-	URL         string
+	Url         string
 	PostedBy    *User
 	Votes       []Vote
 }
@@ -71,7 +71,7 @@ func (r *RootResolver) Post(
 	ctx context.Context,
 	args struct {
 		Description string
-		URL         string
+		Url         string
 	}) (Link, error) {
 	token, ok := ctx.Value("token").(string)
 	if !ok {
@@ -85,7 +85,7 @@ func (r *RootResolver) Post(
 		ID:          graphql.ID(fmt.Sprint(len(links))),
 		CreatedAt:   graphql.Time{time.Now()},
 		Description: args.Description,
-		URL:         args.URL,
+		Url:         args.Url,
 		PostedBy:    author,
 		Votes:       []Vote{},
 	}
@@ -252,8 +252,14 @@ func parseSchema(path string, resolver interface{}) *graphql.Schema {
 func main() {
 	mux := http.NewServeMux()
 
+	rootResolver, err := resolvers.NewRoot()
+
+	if err != nil {
+		panic(err)
+	}
+
 	gqlHandler := &relay.Handler{
-		Schema: parseSchema("./schema.graphql", &resolvers.QueryResolver{}),
+		Schema: parseSchema("./schema.graphql", rootResolver),
 	}
 
 	mux.HandleFunc("/graphql", func(w http.ResponseWriter, r *http.Request) {

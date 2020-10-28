@@ -1,6 +1,6 @@
 schema { 
     query: Query
-#    mutation: Mutation
+    mutation: Mutation
 }
 
 type Query {
@@ -19,12 +19,12 @@ type Link {
     votes: [Vote!]
 }
 
-#type Mutation {
-#    post(url: String!, description: String!): Link!
-#    signup(email: String!, password: String!, name: String!): AuthPayload
-#    login(email: String!, password: String!): AuthPayload
-#    upVote(linkId: ID!): Vote!
-#}
+type Mutation {
+    post(url: String!, description: String!): Link!
+    signup(email: String!, password: String!, name: String!): AuthPayload
+    login(email: String!, password: String!): AuthPayload
+    upVote(linkId: ID!): Vote!
+}
 
 type AuthPayload {
     token: String
