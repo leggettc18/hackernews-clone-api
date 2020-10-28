@@ -1,7 +1,6 @@
 package resolvers
 
 import (
-	"context"
 	goErrors "errors"
 	"github.com/graph-gophers/graphql-go"
 	"strings"
@@ -26,7 +25,7 @@ type NewLinkArgs struct {
 	ID graphql.ID
 }
 
-func NewLink(ctx context.Context, args NewLinkArgs) (*LinkResolver, error) {
+func NewLink(args NewLinkArgs) (*LinkResolver, error) {
 	for _, link := range links {
 		if link.ID == args.ID {
 			for _, vote := range votes {
@@ -45,8 +44,8 @@ type NewLinksArgs struct {
 	And *[]string
 }
 
-func NewLinks(ctx context.Context, args NewLinksArgs) (*[]*LinkResolver, error) {
-	var processedLinks = []Link{}
+func NewLinks(args NewLinksArgs) (*[]*LinkResolver, error) {
+	var processedLinks []Link
 
 	if args.Or != nil && args.And == nil {
 		for _, link := range links {
@@ -58,7 +57,8 @@ func NewLinks(ctx context.Context, args NewLinksArgs) (*[]*LinkResolver, error) 
 				}
 			}
 		}
-	} else if args.And != nil {
+	}
+	if args.And != nil {
 		containsAll := true
 		for _, link := range processedLinks {
 			for _, option := range *args.And {
@@ -102,7 +102,7 @@ func NewLinks(ctx context.Context, args NewLinksArgs) (*[]*LinkResolver, error) 
 		errs      errors.Errors
 	)
 	for index, link := range processedLinks {
-		resolver, err := NewLink(ctx, NewLinkArgs{ID: link.ID})
+		resolver, err := NewLink(NewLinkArgs{ID: link.ID})
 		if err != nil {
 			errs = append(errs, errors.WithIndex(err, index))
 		}
@@ -127,18 +127,18 @@ func (r *LinkResolver) Url() string {
 	return r.Link.URL
 }
 
-func (r *LinkResolver) PostedBy(ctx context.Context) (*UserResolver, error) {
-	return NewUser(ctx, NewUserArgs{ID: r.Link.PostedBy.ID})
+func (r *LinkResolver) PostedBy() (*UserResolver, error) {
+	return NewUser(NewUserArgs{ID: r.Link.PostedBy.ID})
 }
 
-func (r *LinkResolver) Votes(ctx context.Context) (*[]*VoteResolver, error) {
+func (r *LinkResolver) Votes() (*[]*VoteResolver, error) {
 	var (
-		resolvers = []*VoteResolver{}
+		resolvers []*VoteResolver
 		errs      errors.Errors
 	)
 	for index, vote := range votes {
 		if vote.Link.ID == r.Link.ID {
-			resolver, err := NewVote(ctx, NewVoteArgs{ID: vote.ID})
+			resolver, err := NewVote(NewVoteArgs{ID: vote.ID})
 			if err != nil {
 				errs = append(errs, errors.WithIndex(err, index))
 			} else {

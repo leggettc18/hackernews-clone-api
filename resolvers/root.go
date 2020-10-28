@@ -52,8 +52,8 @@ type LinkQueryArgs struct {
 	ID graphql.ID
 }
 
-func (r RootResolver) Link(ctx context.Context, args LinkQueryArgs) (*LinkResolver, error) {
-	return NewLink(ctx, NewLinkArgs{ID: args.ID})
+func (r RootResolver) Link(args LinkQueryArgs) (*LinkResolver, error) {
+	return NewLink(NewLinkArgs{ID: args.ID})
 }
 
 type PostArgs struct {
@@ -64,7 +64,7 @@ type PostArgs struct {
 func (r *RootResolver) Post(ctx context.Context, args PostArgs) (*LinkResolver, error) {
 	token, ok := ctx.Value("token").(string)
 	if !ok {
-		return &LinkResolver{}, errors.New("Post: no key 'token' in context")
+		return &LinkResolver{}, errors.New("post: no key 'token' in context")
 	}
 	author, errAuthor := GetUserFromToken(token)
 	if errAuthor != nil {
@@ -72,7 +72,7 @@ func (r *RootResolver) Post(ctx context.Context, args PostArgs) (*LinkResolver, 
 	}
 	newLink := Link{
 		ID:          graphql.ID(fmt.Sprint(len(links))),
-		CreatedAt:   graphql.Time{time.Now()},
+		CreatedAt:   graphql.Time{Time: time.Now()},
 		Description: args.Description,
 		URL:         args.Url,
 		PostedBy:    author,
@@ -80,7 +80,7 @@ func (r *RootResolver) Post(ctx context.Context, args PostArgs) (*LinkResolver, 
 	}
 
 	links = append(links, newLink)
-	return NewLink(ctx, NewLinkArgs{ID: newLink.ID})
+	return NewLink(NewLinkArgs{ID: newLink.ID})
 }
 
 type LinksQueryArgs struct {
@@ -88,8 +88,8 @@ type LinksQueryArgs struct {
 	And *[]string
 }
 
-func (r RootResolver) Links(ctx context.Context, args LinksQueryArgs) (*[]*LinkResolver, error) {
-	return NewLinks(ctx, NewLinksArgs{Or: args.Or, And: args.And})
+func (r RootResolver) Links(args LinksQueryArgs) (*[]*LinkResolver, error) {
+	return NewLinks(NewLinksArgs{Or: args.Or, And: args.And})
 }
 
 type SignupArgs struct {
@@ -105,13 +105,13 @@ type UpvoteArgs struct {
 func (r *RootResolver) Upvote(ctx context.Context, args UpvoteArgs) (*VoteResolver, error) {
 	token, ok := ctx.Value("token").(string)
 	if !ok {
-		return &VoteResolver{}, errors.New("Post: no key 'token' in context")
+		return &VoteResolver{}, errors.New("post: no key 'token' in context")
 	}
 	voter, errVoter := GetUserFromToken(token)
 	if errVoter != nil {
 		return &VoteResolver{}, errVoter
 	}
-	var processedLinks = []Link{}
+	var processedLinks []Link
 	for index, link := range links {
 		processedLinks = append(processedLinks, link)
 		for _, vote := range votes {
@@ -127,13 +127,13 @@ func (r *RootResolver) Upvote(ctx context.Context, args UpvoteArgs) (*VoteResolv
 		}
 	}
 	newVote := Vote{
-		ID:   graphql.ID(fmt.Sprint((votes))),
+		ID:   graphql.ID(fmt.Sprint(votes)),
 		User: voter,
 		Link: &votedLink,
 	}
 	votedLink.Votes = append(votedLink.Votes, newVote)
 	votes = append(votes, newVote)
-	return NewVote(ctx, NewVoteArgs{ID: newVote.ID})
+	return NewVote(NewVoteArgs{ID: newVote.ID})
 }
 
 func (r *RootResolver) Signup(args SignupArgs) (*AuthResolver, error) {

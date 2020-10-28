@@ -1,7 +1,6 @@
 package resolvers
 
 import (
-	"context"
 	"errors"
 	"github.com/dgrijalva/jwt-go"
 	"golang.org/x/crypto/bcrypt"
@@ -34,7 +33,7 @@ func GetUserFromToken(tokenString string) (*User, error) {
 			return &u, nil
 		}
 	}
-	return nil, errors.New("No user with ID " + string(userID))
+	return nil, errors.New("No user with ID " + userID)
 }
 
 func GenerateToken(user *User) (string, error) {
@@ -69,6 +68,6 @@ func (r *AuthResolver) Token() *string {
 	return r.AuthPayload.Token
 }
 
-func (r *AuthResolver) User(ctx context.Context) (*UserResolver, error) {
-	return NewUser(ctx, NewUserArgs{ID: r.AuthPayload.User.ID})
+func (r *AuthResolver) User() (*UserResolver, error) {
+	return NewUser(NewUserArgs{ID: r.AuthPayload.User.ID})
 }
