@@ -58,7 +58,10 @@ func (r *UserResolver) Links() (*[]*LinkResolver, error) {
 			resolvers = append(resolvers, resolver)
 		}
 	}
-	return &resolvers, errs.Err()
+	if errs != nil {
+		return &resolvers, errs.Err()
+	}
+	return &resolvers, nil
 }
 
 func (r *UserResolver) Votes() (*[]*VoteResolver, error) {
@@ -76,5 +79,8 @@ func (r *UserResolver) Votes() (*[]*VoteResolver, error) {
 			}
 		}
 	}
-	return &resolvers, errs.Err()
+	if errs != nil {
+		return &resolvers, errs.Err()
+	}
+	return &resolvers, nil
 }

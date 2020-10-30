@@ -108,7 +108,10 @@ func NewLinks(args NewLinksArgs) (*[]*LinkResolver, error) {
 		}
 		resolvers = append(resolvers, resolver)
 	}
-	return &resolvers, errs.Err()
+	if errs != nil {
+		return &resolvers, errs.Err()
+	}
+	return &resolvers, nil
 }
 
 func (r *LinkResolver) ID() graphql.ID {
@@ -146,5 +149,8 @@ func (r *LinkResolver) Votes() (*[]*VoteResolver, error) {
 			}
 		}
 	}
-	return &resolvers, errs.Err()
+	if errs != nil {
+		return &resolvers, errs.Err()
+	}
+	return &resolvers, nil
 }
