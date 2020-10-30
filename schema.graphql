@@ -10,6 +10,7 @@ type Query {
 
 scalar Time
 
+"Links are the posts of hackernews-clone, containing descriptions, urls, and votes"
 type Link {
     id: ID!
     createdAt: Time!
@@ -31,6 +32,7 @@ type AuthPayload {
     user: User
 }
 
+"Users have all the info for user accounts, such as names, email addresses, links posted, and votes made."
 type User {
     id: ID!
     email: String!
@@ -39,6 +41,7 @@ type User {
     votes: [Vote!]
 }
 
+"Votes describe an upvote that happened on a particular link."
 type Vote {
     id: ID!
     user: User!
