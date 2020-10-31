@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"github.com/leggettc18/hackernews-clone-api/db"
 	"github.com/leggettc18/hackernews-clone-api/resolvers"
 
 	//"errors"
@@ -54,7 +55,13 @@ func parseSchema(path string, resolver interface{}) *graphql.Schema {
 func main() {
 	mux := http.NewServeMux()
 
-	rootResolver, err := resolvers.NewRoot()
+	db, err := db.NewDB("./db.sqlite")
+
+	if err != nil {
+		panic(err)
+	}
+
+	rootResolver, err := resolvers.NewRoot(db)
 
 	if err != nil {
 		panic(err)

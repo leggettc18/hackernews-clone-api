@@ -3,24 +3,18 @@ package resolvers
 import (
 	goErrors "errors"
 	"github.com/graph-gophers/graphql-go"
+	"github.com/leggettc18/hackernews-clone-api/db"
 	"github.com/leggettc18/hackernews-clone-api/errors"
+	"github.com/leggettc18/hackernews-clone-api/model"
 )
 
-type User struct {
-	ID       graphql.ID
-	Name     string
-	Email    string
-	Password string
-	Links    []Link
-	Votes    []Vote
-}
-
 type UserResolver struct {
-	User User
+	DB   *db.DB
+	User model.User
 }
 
 type NewUserArgs struct {
-	ID graphql.ID
+	ID uint
 }
 
 func NewUser(args NewUserArgs) (*UserResolver, error) {

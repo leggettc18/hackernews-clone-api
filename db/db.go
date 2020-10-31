@@ -42,11 +42,11 @@ var (
 )
 
 type DB struct {
-	DB *gorm.DB
+	*gorm.DB
 }
 
-//newDB returns a new DB connection.
-func newDB(path string) (*DB, error) {
+//NewDB returns a new DB connection.
+func NewDB(path string) (*DB, error) {
 	// connect to the example db, create it if it doesn't exist.
 	db, err := gorm.Open("sqlite3", path)
 	if err != nil {

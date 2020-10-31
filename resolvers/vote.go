@@ -3,16 +3,13 @@ package resolvers
 import (
 	goErrors "errors"
 	"github.com/graph-gophers/graphql-go"
+	"github.com/leggettc18/hackernews-clone-api/db"
+	"github.com/leggettc18/hackernews-clone-api/model"
 )
 
-type Vote struct {
-	ID   graphql.ID
-	User *User
-	Link *Link
-}
-
 type VoteResolver struct {
-	Vote Vote
+	DB   *db.DB
+	Vote model.Vote
 }
 
 type NewVoteArgs struct {

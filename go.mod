@@ -6,6 +6,7 @@ require (
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/graph-gophers/graphql-go v0.0.0-20201003130358-c5bdf3b1108e
 	github.com/jinzhu/gorm v1.9.16
+	github.com/pkg/errors v0.9.1
 	github.com/rs/cors v1.7.0
 	github.com/stretchr/testify v1.6.1 // indirect
 	golang.org/x/crypto v0.0.0-20201016220609-9e8e0b390897

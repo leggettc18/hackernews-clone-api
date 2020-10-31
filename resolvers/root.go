@@ -3,57 +3,35 @@ package resolvers
 import (
 	"context"
 	"errors"
-	"fmt"
-	"github.com/graph-gophers/graphql-go"
+	"github.com/leggettc18/hackernews-clone-api/db"
+	"github.com/leggettc18/hackernews-clone-api/model"
 	"golang.org/x/crypto/bcrypt"
 	"time"
 )
 
-var (
-	passwordHash, _ = bcrypt.GenerateFromPassword(
-		[]byte("password"),
-		bcrypt.DefaultCost,
-	)
-	longForm      = "Jan 2, 2006 at 3:04pm (MST)"
-	sampleTime, _ = time.Parse(longForm, "Feb 3, 2013 at 7:54pm (PST)")
-	users         = []User{
-		{
-			ID:       "0",
-			Name:     "Christopher Leggett",
-			Email:    "chris@leggett.dev",
-			Password: string(passwordHash),
-		},
-	}
-	links = []Link{
-		{
-			ID:          "0",
-			CreatedAt:   graphql.Time{Time: sampleTime},
-			URL:         "www.howtographql.com",
-			Description: "Fullstack tutorial for Graphql",
-			PostedBy:    &users[0],
-		},
-	}
-	votes = []Vote{
-		{
-			ID:   "0",
-			User: &users[0],
-			Link: &links[0],
-		},
-	}
-)
+type RootResolver struct {
+	DB *db.DB
+}
 
-type RootResolver struct{}
-
-func NewRoot() (*RootResolver, error) {
-	return &RootResolver{}, nil
+func NewRoot(db *db.DB) (*RootResolver, error) {
+	return &RootResolver{DB: db}, nil
 }
 
 type LinkQueryArgs struct {
-	ID graphql.ID
+	ID uint
 }
 
 func (r RootResolver) Link(args LinkQueryArgs) (*LinkResolver, error) {
-	return NewLink(NewLinkArgs{ID: args.ID})
+	link, err := r.DB.GetLinkById(args.ID)
+	if err != nil {
+		return nil, err
+	}
+	linkResolver := LinkResolver{
+		DB:   r.DB,
+		Link: link,
+	}
+
+	return &linkResolver, nil
 }
 
 type PostArgs struct {
@@ -66,21 +44,22 @@ func (r *RootResolver) Post(ctx context.Context, args PostArgs) (*LinkResolver, 
 	if !ok {
 		return &LinkResolver{}, errors.New("post: no key 'token' in context")
 	}
-	author, errAuthor := GetUserFromToken(token)
+	author, errAuthor := r.DB.GetUserFromToken(token)
 	if errAuthor != nil {
 		return &LinkResolver{}, errAuthor
 	}
-	newLink := Link{
-		ID:          graphql.ID(fmt.Sprint(len(links))),
-		CreatedAt:   graphql.Time{Time: time.Now()},
+	newLink := model.Link{
+		CreatedAt:   time.Now(),
 		Description: args.Description,
-		URL:         args.Url,
-		PostedBy:    author,
-		Votes:       []Vote{},
+		Url:         args.Url,
+		PostedBy:    *author,
+		Votes:       []model.Vote{},
 	}
 
-	links = append(links, newLink)
-	return NewLink(NewLinkArgs{ID: newLink.ID})
+	if err := r.DB.CreateLink(&newLink); err != nil {
+		return nil, err
+	}
+	return &LinkResolver{DB: r.DB, Link: newLink}, nil
 }
 
 type LinksQueryArgs struct {
@@ -99,7 +78,7 @@ type SignupArgs struct {
 }
 
 type UpvoteArgs struct {
-	LinkID graphql.ID
+	LinkID uint
 }
 
 func (r *RootResolver) Upvote(ctx context.Context, args UpvoteArgs) (*VoteResolver, error) {
@@ -107,33 +86,16 @@ func (r *RootResolver) Upvote(ctx context.Context, args UpvoteArgs) (*VoteResolv
 	if !ok {
 		return &VoteResolver{}, errors.New("post: no key 'token' in context")
 	}
-	voter, errVoter := GetUserFromToken(token)
+	voter, errVoter := r.DB.GetUserFromToken(token)
 	if errVoter != nil {
 		return &VoteResolver{}, errVoter
 	}
-	var processedLinks []Link
-	for index, link := range links {
-		processedLinks = append(processedLinks, link)
-		for _, vote := range votes {
-			if vote.Link.ID == processedLinks[index].ID {
-				processedLinks[index].Votes = append(processedLinks[index].Votes, vote)
-			}
-		}
+	link, err := r.DB.GetLinkById(args.LinkID)
+	if err != nil {
+		return nil, err
 	}
-	var votedLink Link
-	for _, link := range processedLinks {
-		if link.ID == args.LinkID {
-			votedLink = link
-		}
-	}
-	newVote := Vote{
-		ID:   graphql.ID(fmt.Sprint(votes)),
-		User: voter,
-		Link: &votedLink,
-	}
-	votedLink.Votes = append(votedLink.Votes, newVote)
-	votes = append(votes, newVote)
-	return NewVote(NewVoteArgs{ID: newVote.ID})
+	vote := model.Vote{Link: *link, User: *voter}
+	return &VoteResolver{DB: r.DB, Vote: vote}, nil
 }
 
 func (r *RootResolver) Signup(args SignupArgs) (*AuthResolver, error) {
@@ -145,14 +107,15 @@ func (r *RootResolver) Signup(args SignupArgs) (*AuthResolver, error) {
 		return nil, errHash
 	}
 
-	newUser := User{
-		ID:       graphql.ID(fmt.Sprint(len(users))),
-		Email:    args.Email,
-		Password: string(passwordHash),
-		Name:     args.Name,
+	newUser := model.User{
+		Email:          args.Email,
+		HashedPassword: passwordHash,
+		Name:           args.Name,
 	}
 
-	users = append(users, newUser)
+	if err := r.DB.CreateUser(&newUser); err != nil {
+		return nil, err
+	}
 
 	token, errToken := GenerateToken(&newUser)
 
@@ -165,27 +128,28 @@ func (r *RootResolver) Signup(args SignupArgs) (*AuthResolver, error) {
 		User:  &newUser,
 	}
 
-	return NewAuth(payload)
+	return &AuthResolver{payload}, nil
 }
 
 type LoginArgs struct {
 	Email    string
-	Password string
+	Password []byte
 }
 
 func (r *RootResolver) Login(args LoginArgs) (*AuthResolver, error) {
-	user, errUser := getUser(args.Email, args.Password)
+	user, errUser := r.DB.GetUserByEmail(args.Email)
 	if errUser != nil {
 		return nil, errUser
 	}
+	model.ComparePasswordHash(user.HashedPassword, args.Password)
 
-	token, errToken := GenerateToken(&user)
+	token, errToken := GenerateToken(user)
 	if errToken != nil {
 		return nil, errToken
 	}
 	payload := AuthPayload{
 		Token: &token,
-		User:  &user,
+		User:  user,
 	}
-	return NewAuth(payload)
+	return &AuthResolver{payload}, nil
 }

@@ -3,21 +3,14 @@ package resolvers
 import (
 	goErrors "errors"
 	"github.com/graph-gophers/graphql-go"
+	"github.com/leggettc18/hackernews-clone-api/db"
 	"strings"
 
 	"github.com/leggettc18/hackernews-clone-api/errors"
 )
 
-type Link struct {
-	ID          graphql.ID
-	CreatedAt   graphql.Time
-	Description string
-	URL         string
-	PostedBy    *User
-	Votes       []Vote
-}
-
 type LinkResolver struct {
+	DB   *db.DB
 	Link Link
 }
 
