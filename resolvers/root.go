@@ -25,11 +25,11 @@ type LinkQueryArgs struct {
 }
 
 func (r RootResolver) Link(args LinkQueryArgs) (*LinkResolver, error) {
-	id, err := strconv.ParseUint(string(args.ID), 10, 32)
+	id, err := getUintFromGraphqlId(args.ID)
 	if err != nil {
 		return nil, err
 	}
-	link, err := r.DB.GetLinkById(uint(id))
+	link, err := r.DB.GetLinkById(id)
 	if err != nil {
 		return nil, err
 	}
@@ -137,11 +137,11 @@ func (r *RootResolver) Upvote(ctx context.Context, args UpvoteArgs) (*VoteResolv
 	if errVoter != nil {
 		return &VoteResolver{}, errVoter
 	}
-	id, err := strconv.ParseUint(string(args.LinkID), 10, 32)
+	id, err := getUintFromGraphqlId(args.LinkID)
 	if err != nil {
 		return nil, err
 	}
-	link, err := r.DB.GetLinkById(uint(id))
+	link, err := r.DB.GetLinkById(id)
 	if err != nil {
 		return nil, err
 	}
@@ -206,4 +206,13 @@ func (r *RootResolver) Login(args LoginArgs) (*AuthResolver, error) {
 		User:  user,
 	}
 	return &AuthResolver{r.DB, payload}, nil
+}
+
+//Helpers
+func getUintFromGraphqlId(gqlid graphql.ID) (uint, error) {
+	id, err := strconv.ParseUint(string(gqlid), 10, 32)
+	if err != nil {
+		return 0, err
+	}
+	return uint(id), nil
 }
