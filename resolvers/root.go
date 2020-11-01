@@ -3,9 +3,12 @@ package resolvers
 import (
 	"context"
 	"errors"
+	"github.com/graph-gophers/graphql-go"
 	"github.com/leggettc18/hackernews-clone-api/db"
 	"github.com/leggettc18/hackernews-clone-api/model"
 	"golang.org/x/crypto/bcrypt"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -18,17 +21,21 @@ func NewRoot(db *db.DB) (*RootResolver, error) {
 }
 
 type LinkQueryArgs struct {
-	ID uint
+	ID graphql.ID
 }
 
 func (r RootResolver) Link(args LinkQueryArgs) (*LinkResolver, error) {
-	link, err := r.DB.GetLinkById(args.ID)
+	id, err := strconv.ParseUint(string(args.ID), 10, 32)
+	if err != nil {
+		return nil, err
+	}
+	link, err := r.DB.GetLinkById(uint(id))
 	if err != nil {
 		return nil, err
 	}
 	linkResolver := LinkResolver{
 		DB:   r.DB,
-		Link: link,
+		Link: *link,
 	}
 
 	return &linkResolver, nil
@@ -52,7 +59,7 @@ func (r *RootResolver) Post(ctx context.Context, args PostArgs) (*LinkResolver, 
 		CreatedAt:   time.Now(),
 		Description: args.Description,
 		Url:         args.Url,
-		PostedBy:    *author,
+		PosterID:    author.ID,
 		Votes:       []model.Vote{},
 	}
 
@@ -68,7 +75,47 @@ type LinksQueryArgs struct {
 }
 
 func (r RootResolver) Links(args LinksQueryArgs) (*[]*LinkResolver, error) {
-	return NewLinks(NewLinksArgs{Or: args.Or, And: args.And})
+	var (
+		links   []model.Link
+		results []model.Link
+	)
+	if err := r.DB.Find(&links).Error; err != nil {
+		return nil, err
+	}
+	if args.And != nil {
+		for _, link := range links {
+			hasAllTerms := true
+			for _, term := range *args.And {
+				if hasAllTerms == false {
+					break
+				}
+				if strings.Contains(link.Description, term) || strings.Contains(link.Url, term) {
+					hasAllTerms = true
+				} else {
+					hasAllTerms = false
+				}
+			}
+			if hasAllTerms == true {
+				results = append(results, link)
+			}
+		}
+	} else if args.Or != nil {
+		for _, link := range links {
+			for _, term := range *args.Or {
+				if strings.Contains(link.Description, term) || strings.Contains(link.Url, term) {
+					results = append(results, link)
+					break
+				}
+			}
+		}
+	} else {
+		results = links
+	}
+	var resolvers []*LinkResolver
+	for _, link := range results {
+		resolvers = append(resolvers, &LinkResolver{r.DB, link})
+	}
+	return &resolvers, nil
 }
 
 type SignupArgs struct {
@@ -78,7 +125,7 @@ type SignupArgs struct {
 }
 
 type UpvoteArgs struct {
-	LinkID uint
+	LinkID graphql.ID
 }
 
 func (r *RootResolver) Upvote(ctx context.Context, args UpvoteArgs) (*VoteResolver, error) {
@@ -90,11 +137,18 @@ func (r *RootResolver) Upvote(ctx context.Context, args UpvoteArgs) (*VoteResolv
 	if errVoter != nil {
 		return &VoteResolver{}, errVoter
 	}
-	link, err := r.DB.GetLinkById(args.LinkID)
+	id, err := strconv.ParseUint(string(args.LinkID), 10, 32)
 	if err != nil {
 		return nil, err
 	}
-	vote := model.Vote{Link: *link, User: *voter}
+	link, err := r.DB.GetLinkById(uint(id))
+	if err != nil {
+		return nil, err
+	}
+	vote := model.Vote{LinkID: link.ID, UserID: voter.ID}
+	if err := r.DB.CreateVote(&vote); err != nil {
+		return nil, err
+	}
 	return &VoteResolver{DB: r.DB, Vote: vote}, nil
 }
 
@@ -128,12 +182,12 @@ func (r *RootResolver) Signup(args SignupArgs) (*AuthResolver, error) {
 		User:  &newUser,
 	}
 
-	return &AuthResolver{payload}, nil
+	return &AuthResolver{r.DB, payload}, nil
 }
 
 type LoginArgs struct {
 	Email    string
-	Password []byte
+	Password string
 }
 
 func (r *RootResolver) Login(args LoginArgs) (*AuthResolver, error) {
@@ -141,7 +195,7 @@ func (r *RootResolver) Login(args LoginArgs) (*AuthResolver, error) {
 	if errUser != nil {
 		return nil, errUser
 	}
-	model.ComparePasswordHash(user.HashedPassword, args.Password)
+	model.ComparePasswordHash(user.HashedPassword, []byte(args.Password))
 
 	token, errToken := GenerateToken(user)
 	if errToken != nil {
@@ -151,5 +205,5 @@ func (r *RootResolver) Login(args LoginArgs) (*AuthResolver, error) {
 		Token: &token,
 		User:  user,
 	}
-	return &AuthResolver{payload}, nil
+	return &AuthResolver{r.DB, payload}, nil
 }

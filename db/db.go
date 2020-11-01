@@ -29,14 +29,14 @@ var (
 			CreatedAt:   sampleTime,
 			Url:         "www.howtographql.com",
 			Description: "Fullstack tutorial for Graphql",
-			PostedBy:    users[0],
+			PosterID:    0,
 		},
 	}
 	votes = []model.Vote{
 		{
-			ID:   0,
-			User: users[0],
-			Link: links[0],
+			ID:     0,
+			UserID: 1,
+			LinkID: 1,
 		},
 	}
 )

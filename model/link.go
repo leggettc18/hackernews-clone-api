@@ -7,6 +7,6 @@ type Link struct {
 	CreatedAt   time.Time `json:"created_at"`
 	Description string    `json:"description"`
 	Url         string    `json:"url"`
-	PostedBy    User      `json:"postedBy"`
+	PosterID    uint      `json:"poster_id"`
 	Votes       []Vote    `json:"votes"`
 }

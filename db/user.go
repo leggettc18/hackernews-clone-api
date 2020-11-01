@@ -37,11 +37,11 @@ func (db *DB) GetUserFromToken(tokenString string) (*model.User, error) {
 		return nil, err
 	}
 	// get user ID from the map we encoded in the token
-	userID, ok := tokenObj.Claims.(jwt.MapClaims)["ID"].(uint)
+	userID, ok := tokenObj.Claims.(jwt.MapClaims)["ID"].(float64)
 	if !ok {
 		return nil, errors.New("GetUserIDFromToken error: type conversion in claims")
 	}
-	user, err := db.GetUserById(userID)
+	user, err := db.GetUserById(uint(userID))
 	if err != nil {
 		return nil, err
 	}

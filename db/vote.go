@@ -14,3 +14,7 @@ func (db *DB) GetVotesByLinkId(linkId uint) ([]*model.Vote, error) {
 	var votes []*model.Vote
 	return votes, errors.Wrap(db.Where("link_id = ?", linkId).Find(&links).Error, "unable to get votes")
 }
+
+func (db *DB) CreateVote(vote *model.Vote) error {
+	return db.Create(&vote).Error
+}

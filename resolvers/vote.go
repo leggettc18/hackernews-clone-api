@@ -1,7 +1,7 @@
 package resolvers
 
 import (
-	goErrors "errors"
+	"fmt"
 	"github.com/graph-gophers/graphql-go"
 	"github.com/leggettc18/hackernews-clone-api/db"
 	"github.com/leggettc18/hackernews-clone-api/model"
@@ -12,27 +12,22 @@ type VoteResolver struct {
 	Vote model.Vote
 }
 
-type NewVoteArgs struct {
-	ID graphql.ID
-}
-
-func NewVote(args NewVoteArgs) (*VoteResolver, error) {
-	for _, vote := range votes {
-		if vote.ID == args.ID {
-			return &VoteResolver{Vote: vote}, nil
-		}
-	}
-	return &VoteResolver{}, goErrors.New("ID not found")
-}
-
 func (r *VoteResolver) ID() graphql.ID {
-	return r.Vote.ID
+	return graphql.ID(fmt.Sprint(r.Vote.ID))
 }
 
 func (r *VoteResolver) User() (*UserResolver, error) {
-	return NewUser(NewUserArgs{ID: r.Vote.User.ID})
+	user, err := r.DB.GetUserById(r.Vote.UserID)
+	if err != nil {
+		return nil, err
+	}
+	return &UserResolver{r.DB, *user}, nil
 }
 
 func (r *VoteResolver) Link() (*LinkResolver, error) {
-	return NewLink(NewLinkArgs{ID: r.Vote.Link.ID})
+	link, err := r.DB.GetLinkById(r.Vote.LinkID)
+	if err != nil {
+		return nil, err
+	}
+	return &LinkResolver{r.DB, *link}, nil
 }

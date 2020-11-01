@@ -2,10 +2,12 @@ package resolvers
 
 import (
 	"github.com/dgrijalva/jwt-go"
+	"github.com/leggettc18/hackernews-clone-api/db"
 	"github.com/leggettc18/hackernews-clone-api/model"
 )
 
 type AuthResolver struct {
+	DB          *db.DB
 	AuthPayload AuthPayload
 }
 
@@ -24,14 +26,11 @@ func GenerateToken(user *model.User) (string, error) {
 	}
 	return tokenString, nil
 }
-func NewAuth(args AuthPayload) (*AuthResolver, error) {
-	return &AuthResolver{AuthPayload: args}, nil
-}
 
 func (r *AuthResolver) Token() *string {
 	return r.AuthPayload.Token
 }
 
-func (r *AuthResolver) User() (*UserResolver, error) {
-	return NewUser(NewUserArgs{ID: r.AuthPayload.User.ID})
+func (r *AuthResolver) User() *UserResolver {
+	return &UserResolver{r.DB, *r.AuthPayload.User}
 }

@@ -1,118 +1,23 @@
 package resolvers
 
 import (
-	goErrors "errors"
+	"fmt"
 	"github.com/graph-gophers/graphql-go"
 	"github.com/leggettc18/hackernews-clone-api/db"
-	"strings"
-
-	"github.com/leggettc18/hackernews-clone-api/errors"
+	"github.com/leggettc18/hackernews-clone-api/model"
 )
 
 type LinkResolver struct {
 	DB   *db.DB
-	Link Link
-}
-
-type NewLinkArgs struct {
-	ID graphql.ID
-}
-
-func NewLink(args NewLinkArgs) (*LinkResolver, error) {
-	for _, link := range links {
-		if link.ID == args.ID {
-			for _, vote := range votes {
-				if vote.Link.ID == link.ID {
-					link.Votes = append(link.Votes, vote)
-				}
-			}
-			return &LinkResolver{Link: link}, nil
-		}
-	}
-	return &LinkResolver{Link{}}, goErrors.New("ID not found")
-}
-
-type NewLinksArgs struct {
-	Or  *[]string
-	And *[]string
-}
-
-func NewLinks(args NewLinksArgs) (*[]*LinkResolver, error) {
-	var processedLinks []Link
-
-	if args.Or != nil && args.And == nil {
-		for _, link := range links {
-			for _, option := range *args.Or {
-				if strings.Contains(link.URL, option) {
-					processedLinks = append(processedLinks, link)
-				} else if strings.Contains(link.Description, option) {
-					processedLinks = append(processedLinks, link)
-				}
-			}
-		}
-	}
-	if args.And != nil {
-		containsAll := true
-		for _, link := range processedLinks {
-			for _, option := range *args.And {
-				if containsAll == false {
-					break
-				}
-				if strings.Contains(link.URL, option) {
-					containsAll = true
-				} else {
-					containsAll = false
-				}
-			}
-			if containsAll == true {
-				processedLinks = append(processedLinks, link)
-			} else {
-				for _, option := range *args.And {
-					if containsAll == false {
-						break
-					}
-					if strings.Contains(link.Description, option) {
-						containsAll = true
-					} else {
-						containsAll = false
-					}
-				}
-			}
-		}
-	} else {
-		processedLinks = links
-	}
-	for index := range processedLinks {
-		for _, vote := range votes {
-			if vote.Link.ID == processedLinks[index].ID {
-				processedLinks[index].Votes = append(processedLinks[index].Votes, vote)
-			}
-		}
-	}
-
-	var (
-		resolvers = make([]*LinkResolver, 0, len(processedLinks))
-		errs      errors.Errors
-	)
-	for index, link := range processedLinks {
-		resolver, err := NewLink(NewLinkArgs{ID: link.ID})
-		if err != nil {
-			errs = append(errs, errors.WithIndex(err, index))
-		}
-		resolvers = append(resolvers, resolver)
-	}
-	if errs != nil {
-		return &resolvers, errs.Err()
-	}
-	return &resolvers, nil
+	Link model.Link
 }
 
 func (r *LinkResolver) ID() graphql.ID {
-	return r.Link.ID
+	return graphql.ID(fmt.Sprint(r.Link.ID))
 }
 
 func (r *LinkResolver) CreatedAt() graphql.Time {
-	return r.Link.CreatedAt
+	return graphql.Time{Time: r.Link.CreatedAt}
 }
 
 func (r *LinkResolver) Description() string {
@@ -120,30 +25,29 @@ func (r *LinkResolver) Description() string {
 }
 
 func (r *LinkResolver) Url() string {
-	return r.Link.URL
+	return r.Link.Url
 }
 
 func (r *LinkResolver) PostedBy() (*UserResolver, error) {
-	return NewUser(NewUserArgs{ID: r.Link.PostedBy.ID})
+	user, err := r.DB.GetUserById(r.Link.PosterID)
+	if err != nil {
+		return nil, err
+	}
+	return &UserResolver{r.DB, *user}, nil
 }
 
 func (r *LinkResolver) Votes() (*[]*VoteResolver, error) {
 	var (
 		resolvers []*VoteResolver
-		errs      errors.Errors
 	)
-	for index, vote := range votes {
-		if vote.Link.ID == r.Link.ID {
-			resolver, err := NewVote(NewVoteArgs{ID: vote.ID})
-			if err != nil {
-				errs = append(errs, errors.WithIndex(err, index))
-			} else {
-				resolvers = append(resolvers, resolver)
-			}
-		}
+	if err := r.DB.Model(&r.Link).Related(&r.Link.Votes).Error; err != nil {
+		return nil, err
 	}
-	if errs != nil {
-		return &resolvers, errs.Err()
+	for _, vote := range r.Link.Votes {
+		if vote.LinkID == r.Link.ID {
+			resolver := VoteResolver{r.DB, vote}
+			resolvers = append(resolvers, &resolver)
+		}
 	}
 	return &resolvers, nil
 }
