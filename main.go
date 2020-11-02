@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/leggettc18/hackernews-clone-api/db"
 	"github.com/leggettc18/hackernews-clone-api/resolvers"
+	"github.com/rs/cors"
 
 	//"errors"
 	//"fmt"
@@ -13,12 +14,11 @@ import (
 	"strings"
 	"time"
 
-	//"github.com/dgrijalva/jwt-go"
-	"github.com/rs/cors"
 	//"golang.org/x/crypto/bcrypt"
 
 	"github.com/graph-gophers/graphql-go"
 	"github.com/graph-gophers/graphql-go/relay"
+	"github.com/graph-gophers/graphql-transport-ws/graphqlws"
 )
 
 var (
@@ -55,26 +55,30 @@ func parseSchema(path string, resolver interface{}) *graphql.Schema {
 func main() {
 	mux := http.NewServeMux()
 
-	db, err := db.NewDB("./db.sqlite")
+	database, err := db.NewDB("./db.sqlite")
 
 	if err != nil {
 		panic(err)
 	}
 
-	rootResolver, err := resolvers.NewRoot(db)
+	rootResolver, err := resolvers.NewRoot(database)
 
 	if err != nil {
 		panic(err)
 	}
 
-	gqlHandler := &relay.Handler{
-		Schema: parseSchema("./schema.graphql", rootResolver),
-	}
+	schema := parseSchema("./schema.graphql", rootResolver)
+	wsHandler := graphqlws.NewHandlerFunc(
+		schema,
+		&relay.Handler{
+			Schema: schema,
+		},
+	)
 
 	mux.HandleFunc("/graphql", func(w http.ResponseWriter, r *http.Request) {
 		token := strings.ReplaceAll(r.Header.Get("Authorization"), "Bearer ", "")
 		ctx := context.WithValue(context.Background(), "token", token)
-		gqlHandler.ServeHTTP(w, r.WithContext(ctx))
+		wsHandler.ServeHTTP(w, r.WithContext(ctx))
 	})
 
 	// necessary CORS options. Should not be used in production

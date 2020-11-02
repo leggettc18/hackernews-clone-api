@@ -3,6 +3,7 @@ package resolvers
 import (
 	"context"
 	"errors"
+	"fmt"
 	"github.com/graph-gophers/graphql-go"
 	"github.com/leggettc18/hackernews-clone-api/db"
 	"github.com/leggettc18/hackernews-clone-api/model"
@@ -13,11 +14,17 @@ import (
 )
 
 type RootResolver struct {
-	DB *db.DB
+	DB       *db.DB
+	NewLinks chan *LinkResolver
 }
 
 func NewRoot(db *db.DB) (*RootResolver, error) {
-	return &RootResolver{DB: db}, nil
+	return &RootResolver{DB: db, NewLinks: make(chan *LinkResolver)}, nil
+}
+
+func (r *RootResolver) NewLink() (chan *LinkResolver, error) {
+	fmt.Println("subscribing to new links")
+	return r.NewLinks, nil
 }
 
 type LinkQueryArgs struct {
@@ -66,7 +73,18 @@ func (r *RootResolver) Post(ctx context.Context, args PostArgs) (*LinkResolver, 
 	if err := r.DB.CreateLink(&newLink); err != nil {
 		return nil, err
 	}
-	return &LinkResolver{DB: r.DB, Link: newLink}, nil
+	linkResolver := &LinkResolver{DB: r.DB, Link: newLink}
+
+	select {
+	case r.NewLinks <- linkResolver:
+		// values are being read from r.Events
+		fmt.Println("r.NewLinks: inserted link")
+	default:
+		//no subscribers, link not in channel
+		fmt.Println("r.NewLinks: link created, not inserted")
+	}
+
+	return linkResolver, nil
 }
 
 type LinksQueryArgs struct {
