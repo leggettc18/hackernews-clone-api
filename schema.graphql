@@ -5,7 +5,18 @@ schema {
 }
 
 type Subscription {
-    newLink: Link
+    newLink: NewLinkEvent!
+    newVote: NewVoteEvent!
+}
+
+type NewLinkEvent {
+    id: String!
+    newLink: Link!
+}
+
+type NewVoteEvent {
+    id: String!
+    newVote: Vote!
 }
 
 type Query {

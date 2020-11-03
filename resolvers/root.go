@@ -8,23 +8,157 @@ import (
 	"github.com/leggettc18/hackernews-clone-api/db"
 	"github.com/leggettc18/hackernews-clone-api/model"
 	"golang.org/x/crypto/bcrypt"
+	"math/rand"
 	"strconv"
 	"strings"
 	"time"
 )
 
 type RootResolver struct {
-	DB       *db.DB
-	NewLinks chan *LinkResolver
+	DB                *db.DB
+	NewLinkEvents     chan *NewLinkEvent
+	NewLinkSubscriber chan *NewLinkSubscriber
+	NewVoteEvents     chan *NewVoteEvent
+	NewVoteSubscriber chan *NewVoteSubscriber
+}
+
+type NewLinkSubscriber struct {
+	stop   <-chan struct{}
+	events chan<- *NewLinkEvent
+}
+
+type NewLinkEvent struct {
+	EventID string
+	Link    *LinkResolver
+}
+
+func (r *NewLinkEvent) NewLink() *LinkResolver {
+	return r.Link
+}
+
+func (r *NewLinkEvent) ID() string {
+	return r.EventID
+}
+
+type NewVoteEvent struct {
+	EventID string
+	Vote    *VoteResolver
+}
+
+func (r *NewVoteEvent) NewVote() *VoteResolver {
+	return r.Vote
+}
+
+func (r *NewVoteEvent) ID() string {
+	return r.EventID
+}
+
+type NewVoteSubscriber struct {
+	stop   <-chan struct{}
+	events chan<- *NewVoteEvent
 }
 
 func NewRoot(db *db.DB) (*RootResolver, error) {
-	return &RootResolver{DB: db, NewLinks: make(chan *LinkResolver)}, nil
+	r := &RootResolver{
+		DB:                db,
+		NewLinkEvents:     make(chan *NewLinkEvent),
+		NewLinkSubscriber: make(chan *NewLinkSubscriber),
+		NewVoteEvents:     make(chan *NewVoteEvent),
+		NewVoteSubscriber: make(chan *NewVoteSubscriber),
+	}
+
+	go r.broadcastNewLink()
+	go r.broadcastNewVote()
+
+	return r, nil
 }
 
-func (r *RootResolver) NewLink() (chan *LinkResolver, error) {
+func (r *RootResolver) broadcastNewLink() {
+	subscribers := map[string]*NewLinkSubscriber{}
+	unsubscribe := make(chan string)
+
+	for {
+		select {
+		case id := <-unsubscribe:
+			delete(subscribers, id)
+		case s := <-r.NewLinkSubscriber:
+			subscribers[randomID()] = s
+		case e := <-r.NewLinkEvents:
+			for id, s := range subscribers {
+				go func(id string, s *NewLinkSubscriber) {
+					select {
+					case <-s.stop:
+						unsubscribe <- id
+						return
+					default:
+					}
+
+					select {
+					case <-s.stop:
+						unsubscribe <- id
+					case s.events <- e:
+					case <-time.After(time.Second):
+					}
+				}(id, s)
+			}
+		}
+	}
+}
+
+func (r *RootResolver) broadcastNewVote() {
+	subscribers := map[string]*NewVoteSubscriber{}
+	unsubscribe := make(chan string)
+
+	for {
+		select {
+		case id := <-unsubscribe:
+			delete(subscribers, id)
+		case s := <-r.NewVoteSubscriber:
+			subscribers[randomID()] = s
+		case e := <-r.NewVoteEvents:
+			for id, s := range subscribers {
+				go func(id string, s *NewVoteSubscriber) {
+					select {
+					case <-s.stop:
+						unsubscribe <- id
+						return
+					default:
+					}
+
+					select {
+					case <-s.stop:
+						unsubscribe <- id
+					case s.events <- e:
+					case <-time.After(time.Second):
+					}
+				}(id, s)
+			}
+		}
+	}
+}
+
+func randomID() string {
+	var letter = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
+
+	b := make([]rune, 16)
+	for i := range b {
+		b[i] = letter[rand.Intn(len(letter))]
+	}
+	return string(b)
+}
+
+func (r *RootResolver) NewLink(ctx context.Context) (<-chan *NewLinkEvent, error) {
 	fmt.Println("subscribing to new links")
-	return r.NewLinks, nil
+	c := make(chan *NewLinkEvent)
+	r.NewLinkSubscriber <- &NewLinkSubscriber{events: c, stop: ctx.Done()}
+	return c, nil
+}
+
+func (r *RootResolver) NewVote(ctx context.Context) (<-chan *NewVoteEvent, error) {
+	fmt.Println("subscribing to new links")
+	c := make(chan *NewVoteEvent)
+	r.NewVoteSubscriber <- &NewVoteSubscriber{events: c, stop: ctx.Done()}
+	return c, nil
 }
 
 type LinkQueryArgs struct {
@@ -76,7 +210,7 @@ func (r *RootResolver) Post(ctx context.Context, args PostArgs) (*LinkResolver, 
 	linkResolver := &LinkResolver{DB: r.DB, Link: newLink}
 
 	select {
-	case r.NewLinks <- linkResolver:
+	case r.NewLinkEvents <- &NewLinkEvent{Link: linkResolver, EventID: randomID()}:
 		// values are being read from r.Events
 		fmt.Println("r.NewLinks: inserted link")
 	default:
@@ -167,7 +301,16 @@ func (r *RootResolver) Upvote(ctx context.Context, args UpvoteArgs) (*VoteResolv
 	if err := r.DB.CreateVote(&vote); err != nil {
 		return nil, err
 	}
-	return &VoteResolver{DB: r.DB, Vote: vote}, nil
+	voteResolver := &VoteResolver{DB: r.DB, Vote: vote}
+	select {
+	case r.NewVoteEvents <- &NewVoteEvent{Vote: voteResolver, EventID: randomID()}:
+		// values are being read from r.Events
+		fmt.Println("r.NewVotes: inserted vote")
+	default:
+		//no subscribers, link not in channel
+		fmt.Println("r.NewVotes: vote created, not inserted")
+	}
+	return voteResolver, nil
 }
 
 func (r *RootResolver) Signup(args SignupArgs) (*AuthResolver, error) {
