@@ -25,7 +25,56 @@ var (
 	}
 	links = []model.Link{
 		{
-			ID:          0,
+			//ID:          0,
+			CreatedAt:   sampleTime,
+			Url:         "www.howtographql.com",
+			Description: "Fullstack tutorial for Graphql",
+			PosterID:    0,
+		},
+		{
+			//ID:          1,
+			CreatedAt:   sampleTime,
+			Url:         "www.howtographql.com",
+			Description: "Fullstack tutorial for Graphql",
+			PosterID:    0,
+		},
+		{
+			//ID:          2,
+			CreatedAt:   sampleTime,
+			Url:         "www.howtographql.com",
+			Description: "Fullstack tutorial for Graphql",
+			PosterID:    0,
+		},
+		{
+			//ID:          3,
+			CreatedAt:   sampleTime,
+			Url:         "www.howtographql.com",
+			Description: "Fullstack tutorial for Graphql",
+			PosterID:    0,
+		},
+		{
+			//ID:          4,
+			CreatedAt:   sampleTime,
+			Url:         "www.howtographql.com",
+			Description: "Fullstack tutorial for Graphql",
+			PosterID:    0,
+		},
+		{
+			//ID:          5,
+			CreatedAt:   sampleTime,
+			Url:         "www.howtographql.com",
+			Description: "Fullstack tutorial for Graphql",
+			PosterID:    0,
+		},
+		{
+			//ID:          6,
+			CreatedAt:   sampleTime,
+			Url:         "www.howtographql.com",
+			Description: "Fullstack tutorial for Graphql",
+			PosterID:    0,
+		},
+		{
+			//ID:          7,
 			CreatedAt:   sampleTime,
 			Url:         "www.howtographql.com",
 			Description: "Fullstack tutorial for Graphql",

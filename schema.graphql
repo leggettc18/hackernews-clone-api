@@ -20,7 +20,8 @@ type NewVoteEvent {
 }
 
 type Query {
-    links(OR: [String!], AND: [String!]): [Link!]
+    links(OR: [String!], AND: [String!], first: Int, skip: Int, orderBy: String): [Link!]
+    linksMeta: Meta
     link(id: ID!): Link!
 }
 
@@ -62,4 +63,9 @@ type Vote {
     id: ID!
     user: User!
     link: Link!
+}
+
+"Meta specifies some metadata about other types."
+type Meta {
+    count: Int!
 }

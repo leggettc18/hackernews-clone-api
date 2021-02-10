@@ -9,6 +9,7 @@ import (
 	"github.com/leggettc18/hackernews-clone-api/model"
 	"golang.org/x/crypto/bcrypt"
 	"math/rand"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -222,8 +223,21 @@ func (r *RootResolver) Post(ctx context.Context, args PostArgs) (*LinkResolver, 
 }
 
 type LinksQueryArgs struct {
-	Or  *[]string
-	And *[]string
+	Or      *[]string
+	And     *[]string
+	First   *float64
+	Skip    *float64
+	OrderBy *string
+}
+
+func (r RootResolver) LinksMeta() (*MetaResolver, error) {
+	var links []model.Link
+	result := r.DB.Find(&links)
+	err := result.Error
+	if err != nil {
+		return nil, err
+	}
+	return &MetaResolver{int32(result.RowsAffected)}, nil
 }
 
 func (r RootResolver) Links(args LinksQueryArgs) (*[]*LinkResolver, error) {
@@ -262,6 +276,22 @@ func (r RootResolver) Links(args LinksQueryArgs) (*[]*LinkResolver, error) {
 		}
 	} else {
 		results = links
+	}
+
+	if args.Skip != nil {
+		if args.First != nil && (len(results) > int(*args.First+*args.Skip)) {
+			results = results[int(*args.Skip):int(*args.First+*args.Skip)]
+		} else {
+			results = results[int(*args.Skip):]
+		}
+	}
+
+	if args.OrderBy != nil {
+		if *args.OrderBy == "createdAt_DESC" {
+			sort.Slice(results, func(i, j int) bool {
+				return results[i].CreatedAt.Before(results[j].CreatedAt)
+			})
+		}
 	}
 	var resolvers []*LinkResolver
 	for _, link := range results {
