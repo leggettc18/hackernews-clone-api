@@ -18,8 +18,8 @@ var (
 	users         = []model.User{
 		{
 			ID:             0,
-			Name:           "Christopher Leggett",
-			Email:          "chris@leggett.dev",
+			Name:           "Admin",
+			Email:          "admin@example.com",
 			HashedPassword: passwordHash,
 		},
 	}
